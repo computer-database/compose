@@ -1,0 +1,45 @@
+---
+version: "3.9"
+services:
+  web:
+    image: computer-database-master:0.1.0-SNAPSHOT
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    command: -Dapp.db.url="jdbc:h2:tcp://db:9092/computerdb;DB_CLOSE_DELAY=-1"
+  db:
+    image: buildo/h2database
+    ports:
+      - "8082:8082"
+      - "9092:9092"
+  keycloak:
+    image: quay.io/keycloak/keycloak:20.0.2
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    depends_on:
+      - db
+      - web
+    command: start-dev
+    ports:
+      - "8081:8080"
+  oauth2:
+    container_name: oauth2
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    ports:
+      - "4180:4180"
+    depends_on:
+      - web
+      - keycloak
+    command:
+      - --http-address=0.0.0.0:4180
+      - --email-domain=*
+      - --cookie-secure=false
+      - --cookie-secret=
+      - --upstream=http://web:8080
+      - --provider=oidc
+      - --client-id=oauth2-proxy
+      - --client-secret=
+      - --oidc-issuer-url=http://192.168.0.100:8081/realms/master
+      - --redirect-url=http://192.168.0.100:4180/oauth2/callback
